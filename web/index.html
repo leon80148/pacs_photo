@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0ea5a8" />
+    <title>PACS 拍照上傳</title>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script defer src="/app.js"></script>
+  </head>
+  <body>
+    <div class="app">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">診所影像上傳</p>
+          <h1>PACS 拍照上傳</h1>
+          <p class="subtitle">拍照或選圖，快速封裝成 DICOM 並送入 PACS</p>
+        </div>
+        <div class="status-pill" id="statusPill">待命</div>
+      </header>
+
+      <nav class="tabs">
+        <button class="tab active" data-tab="home">首頁</button>
+        <button class="tab" data-tab="settings">設定</button>
+      </nav>
+
+      <main>
+        <section id="home" class="tab-panel active">
+          <div class="card stagger-1">
+            <div class="card-header">
+              <h2>患者資訊</h2>
+              <button class="ghost" type="button" data-clear="patient">
+                清除
+              </button>
+            </div>
+            <div class="grid">
+              <label>
+                患者ID（Patient ID）
+                <input id="patientId" placeholder="例如：A123456" />
+              </label>
+              <label>
+                病歷號
+                <input id="chartNo" placeholder="例如：CH-00921" />
+              </label>
+              <label>
+                患者姓名
+                <input id="patientName" placeholder="可空白" />
+              </label>
+              <label>
+                出生年月日
+                <input id="birthDate" type="date" />
+              </label>
+              <label>
+                性別
+                <select id="sex">
+                  <option value="">可空白</option>
+                  <option value="M">男</option>
+                  <option value="F">女</option>
+                  <option value="O">其他</option>
+                  <option value="U">未知</option>
+                </select>
+              </label>
+            </div>
+            <p class="hint">
+              至少填「患者ID」或「病歷號」其中一個。
+            </p>
+          </div>
+
+          <div class="card stagger-2">
+            <div class="card-header">
+              <h2>檢查資訊</h2>
+              <button class="ghost" type="button" data-clear="exam">
+                清除
+              </button>
+            </div>
+            <div class="grid">
+              <label>
+                模式
+                <select id="examMode">
+                  <option value="auto">自動</option>
+                  <option value="manual">手動</option>
+                </select>
+              </label>
+              <label>
+                檢查日期時間
+                <input id="examDateTime" type="datetime-local" />
+              </label>
+              <label class="wide">
+                檢查記述
+                <input id="examDescription" placeholder="可空白" />
+              </label>
+            </div>
+            <p class="hint">
+              自動模式會在送出時使用目前時間。
+            </p>
+          </div>
+
+          <div class="card stagger-3">
+            <div class="card-header">
+              <h2>影像資訊</h2>
+              <button class="ghost" type="button" data-clear="images">
+                清除
+              </button>
+            </div>
+            <div class="actions">
+              <button class="primary" type="button" id="captureBtn">
+                拍攝
+              </button>
+              <button class="secondary" type="button" id="albumBtn">
+                從相簿選擇
+              </button>
+              <input
+                id="cameraInput"
+                type="file"
+                accept="image/*"
+                capture="environment"
+              />
+              <input id="albumInput" type="file" accept="image/*" multiple />
+            </div>
+            <div class="image-meta">
+              <span id="imageCount">已選 0 張</span>
+              <span id="imageHint">支援多張上傳</span>
+            </div>
+            <div id="imageList" class="image-list"></div>
+          </div>
+
+          <div class="card submit-card stagger-4">
+            <button class="cta" id="submitBtn" type="button">
+              PACS 送信
+            </button>
+            <div class="progress" id="progressText">尚未送出</div>
+          </div>
+        </section>
+
+        <section id="settings" class="tab-panel">
+          <div class="card stagger-1" id="cardCstore">
+            <div class="card-header">
+              <h2>PACS 連線</h2>
+              <button class="ghost" type="button" id="echoBtn">
+                測試 C-ECHO
+              </button>
+            </div>
+            <div class="grid">
+              <label>
+                送信先 AET
+                <input id="pacsCalledAet" />
+              </label>
+              <label>
+                送信先 IP
+                <input id="pacsHost" />
+              </label>
+              <label>
+                送信先 Port
+                <input id="pacsPort" type="number" />
+              </label>
+            </div>
+            <div class="hint" id="echoResult">尚未測試</div>
+          </div>
+
+          <div class="card stagger-1" id="cardDicomweb">
+            <div class="card-header">
+              <h2>DICOMweb 連線</h2>
+              <button class="ghost" type="button" id="dicomwebEchoBtn">
+                測試連線
+              </button>
+            </div>
+            <div class="grid">
+              <label class="wide">
+                Base URL
+                <input id="dicomwebBaseUrl" placeholder="https://host/dcm4chee-arc/aets/DCM4CHEE/rs" />
+              </label>
+              <label class="switch">
+                <input id="dicomwebVerifyTls" type="checkbox" />
+                <span>驗證 TLS 證書</span>
+              </label>
+              <label>
+                逾時秒數
+                <input id="dicomwebTimeout" type="number" min="5" max="300" />
+              </label>
+            </div>
+            <div class="hint" id="dicomwebEchoResult">尚未測試</div>
+          </div>
+
+          <div class="card stagger-2">
+            <details class="advanced-details">
+              <summary>進階設定</summary>
+              <div class="advanced-content">
+                <div class="advanced-section">
+                  <h3>本機送信端</h3>
+                  <div class="grid">
+                    <label>
+                      送信元 AET
+                      <input id="localCallingAet" />
+                    </label>
+                    <label>
+                      Modality
+                      <input id="localModality" />
+                    </label>
+                    <label>
+                      影像長邊尺寸
+                      <input id="localResizeMax" type="number" />
+                    </label>
+                    <label class="wide">
+                      Transfer Syntax
+                      <input id="localTransferSyntax" />
+                    </label>
+                    <label class="wide">
+                      字元集
+                      <input id="localCharset" />
+                    </label>
+                  </div>
+                </div>
+                <div class="advanced-section">
+                  <h3>DICOM 寫入</h3>
+                  <div class="grid">
+                    <label class="switch">
+                      <input id="flagPatientInfo" type="checkbox" />
+                      <span>寫入患者資訊（ID 除外）</span>
+                    </label>
+                    <label class="switch">
+                      <input id="flagExamDescription" type="checkbox" />
+                      <span>寫入檢查記述</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </details>
+          </div>
+
+          <div class="card stagger-3">
+            <div class="card-header">
+              <h2>外觀</h2>
+            </div>
+            <label class="switch">
+              <input id="flagThemeDark" type="checkbox" />
+              <span>深色主題</span>
+            </label>
+          </div>
+
+          <div class="card submit-card stagger-4">
+            <button class="cta" id="saveSettingsBtn" type="button">
+              儲存設定
+            </button>
+            <div class="progress" id="settingsStatus">尚未儲存</div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>
