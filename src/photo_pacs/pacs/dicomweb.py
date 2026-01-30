@@ -151,6 +151,12 @@ class DicomwebPacsSender:
                 error_code="PACS_REJECTED",
             )
 
+        logger.info(
+            "STOW-RS response %d: %s",
+            response.status_code,
+            response.text[:500],
+        )
+
         if response.status_code == 409:
             instances = self._parse_store_response(response, datasets)
             return PacsBatchResult(

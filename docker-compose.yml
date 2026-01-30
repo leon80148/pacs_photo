@@ -3,6 +3,8 @@ services:
     build: .
     ports:
       - "9470:9470"
+    environment:
+      - TZ=Asia/Taipei
     env_file:
       - .env
     volumes:
