@@ -11,3 +11,9 @@ data/
 dist/
 build/
 *.egg-info/
+.claude/
+docs/
+specs/
+AGENTS.md
+photo_pacs_PRD.md
+UI_text.md

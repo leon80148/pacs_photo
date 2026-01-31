@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 專案概述
 
-暫時性 PWA + Gateway，讓手機/平板拍照上傳後轉成 DICOM Secondary Capture 並透過 C-STORE 送入 PACS。未來 PACS 支援 DICOMweb 後可切換並停用此 gateway。
+PWA + Gateway，讓手機/平板拍照上傳後轉成 DICOM Secondary Capture 並送入 PACS。支援 C-STORE 和 DICOMweb（STOW-RS）兩種 PACS 後端模式。
 
 ## 常用指令
 
@@ -42,14 +42,14 @@ black src/ tests/
 
 ### 請求流程（POST /api/studies）
 
-表單驗證 → 儲存上傳檔 → PIL 影像轉 DICOM Secondary Capture → C-STORE 送 PACS → 清除暫存 → 回應結果
+表單驗證 → 儲存上傳檔 → PIL 影像轉 DICOM Secondary Capture → PACS 送信（C-STORE 或 STOW-RS）→ 清除暫存 → 回應結果
 
 ### 可插拔後端（Strategy + Factory 模式）
 
 PACS 後端透過 Protocol 定義介面，以 `PHOTO_PACS_PACS_BACKEND` 環境變數選擇實作：
 
-- **PACS**: `mock` | `cstore` | `dicomweb`（dicomweb 尚未實作）
-  - 介面: `src/photo_pacs/pacs/base.py`
+- **PACS**: `mock` | `cstore` | `dicomweb`
+  - 介面: `src/photo_pacs/pacs/base.py`（`PacsSender` Protocol）
   - 工廠: `src/photo_pacs/pacs/__init__.py` → `get_pacs_sender()`
 
 ### 關鍵模組
@@ -57,10 +57,19 @@ PACS 後端透過 Protocol 定義介面，以 `PHOTO_PACS_PACS_BACKEND` 環境�
 | 模組 | 職責 |
 |------|------|
 | `api/routes/studies.py` | 核心上傳端點：驗證、轉檔、送 PACS |
+| `api/routes/pacs.py` | C-ECHO / DICOMweb 連線測試端點 |
+| `api/routes/settings.py` | 運行時設定 CRUD API |
+| `api/schemas.py` | Pydantic 回應模型（camelCase 別名） |
 | `services/conversion.py` | PIL 影像 → pydicom Dataset（Secondary Capture） |
 | `services/settings_store.py` | JSON 檔案持久化運行時設定 |
+| `pacs/base.py` | `PacsSender` Protocol 與資料類別 |
+| `pacs/mock.py` | Mock PACS 實作（開發/測試用） |
 | `pacs/cstore.py` | pynetdicom C-ECHO/C-STORE 實作 |
+| `pacs/dicomweb.py` | httpx STOW-RS/QIDO-RS 實作 |
+| `storage/local.py` | 本機檔案儲存（上傳/DICOM/清除） |
 | `settings.py` | Pydantic BaseSettings，所有環境變數（前綴 `PHOTO_PACS_`） |
+| `logging.py` | JSON 格式結構化日誌 |
+| `metrics.py` | 執行緒安全的請求計數器 |
 | `middleware.py` | Request ID 產生、指標計數 |
 
 ### 前端
@@ -76,7 +85,7 @@ PACS 後端透過 Protocol 定義介面，以 `PHOTO_PACS_PACS_BACKEND` 環境�
 - 預設 port：`9470`
 - 外網存取透過 Cloudflare Tunnel（HTTPS），PWA 安裝與 Service Worker 可正常運作
 
-## 開發方法論（SDD + TDD）
+## 開發方法論
 
 1. **測試先行**：針對驗收標準先寫失敗測試 → 最小實作通過 → 重構
 2. **一次一條驗收標準**，避免大範圍改動
@@ -86,10 +95,11 @@ PACS 後端透過 Protocol 定義介面，以 `PHOTO_PACS_PACS_BACKEND` 環境�
 - 框架：pytest，設定在 `pyproject.toml`（testpaths=tests, pythonpath=src）
 - `tests/conftest.py` 提供 `make_client` fixture，使用暫存目錄與 mock 後端
 - 測試命名對應驗收標準，出錯時易定位
+- 目前 19 個測試：上傳流程、DICOMweb、C-ECHO、設定 API、健康檢查
 
 ## 設定管理
 
-- **靜態設定**：環境變數，前綴 `PHOTO_PACS_`，由 `settings.py` 的 Pydantic BaseSettings 解析
+- **靜態設定**：環境變數，前綴 `PHOTO_PACS_`，由 `settings.py` 的 Pydantic BaseSettings 解析（`extra="ignore"` 忽略不認識的變數）
 - **運行時設定**：`data/settings.json`，可透過 `PUT /api/settings` 即時修改 PACS 參數
 - **後端模式查詢**：`GET /api/settings/info` 回傳 `{ "pacsBackend": "..." }`，前端據此切換 UI
 - 參考 `.env.example` 取得完整變數清單（分組註解，不常改的參數預設註解掉）

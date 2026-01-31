@@ -8,8 +8,6 @@ WORKDIR /app
 COPY pyproject.toml /app/
 COPY src /app/src
 COPY web /app/web
-COPY docs /app/docs
-COPY specs /app/specs
 COPY README.md /app/README.md
 COPY .env.example /app/.env.example
 
