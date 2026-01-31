@@ -28,7 +28,6 @@ def test_update_settings(make_client):
             "includeExamDescription": False,
             "themeDark": True,
         },
-        "his": {"baseUrl": "https://his.example", "apiKey": "k", "timeout": 5, "retry": 1},
     }
 
     response = client.put("/api/settings", json=update_payload)

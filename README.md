@@ -141,13 +141,10 @@ photo_pacs/
 │   ├── services/
 │   │   ├── conversion.py    # 影像 → DICOM 轉換
 │   │   └── settings_store.py
-│   ├── pacs/
-│   │   ├── base.py          # PACS 介面
-│   │   ├── cstore.py        # C-STORE 實作
-│   │   └── dicomweb.py      # DICOMweb 實作
-│   └── his/
-│       ├── base.py          # HIS 介面
-│       └── http.py          # HTTP HIS 客戶端
+│   └── pacs/
+│       ├── base.py          # PACS 介面
+│       ├── cstore.py        # C-STORE 實作
+│       └── dicomweb.py      # DICOMweb 實作
 ├── web/                     # PWA 前端（靜態）
 ├── tests/
 ├── Dockerfile
@@ -167,8 +164,5 @@ pytest
 | HTTP | 代碼 | 說明 |
 |------|------|------|
 | 400 | `VALIDATION_ERROR` | 表單驗證失敗 |
-| 404 | `PATIENT_NOT_FOUND` | HIS 查無病患 |
-| 409 | `PATIENT_ID_MISMATCH` | 患者 ID 與病歷號不一致 |
-| 502 | `HIS_UNAVAILABLE` | HIS 無法連線 |
 | 502 | `PACS_REJECTED` | PACS 拒絕傳輸 |
 | 504 | `PACS_TIMEOUT` | PACS 連線逾時 |

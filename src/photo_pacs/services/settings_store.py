@@ -35,15 +35,6 @@ class FlagsConfig(BaseModel):
     model_config = {"populate_by_name": True}
 
 
-class HisConfig(BaseModel):
-    base_url: str | None = Field(default=None, alias="baseUrl")
-    api_key: str | None = Field(default=None, alias="apiKey")
-    timeout: int = 5
-    retry: int = 0
-
-    model_config = {"populate_by_name": True}
-
-
 class DicomwebConfig(BaseModel):
     base_url: str | None = Field(default=None, alias="baseUrl")
     verify_tls: bool = Field(default=True, alias="verifyTls")
@@ -57,7 +48,6 @@ class RuntimeSettings(BaseModel):
     dicomweb: DicomwebConfig = Field(default_factory=DicomwebConfig)
     local_ae: LocalAEConfig = Field(alias="localAE")
     flags: FlagsConfig
-    his: HisConfig
 
     model_config = {"populate_by_name": True}
 
@@ -80,12 +70,6 @@ def build_default_runtime_settings(settings: Settings) -> RuntimeSettings:
             include_patient_info_except_id=settings.flag_include_patient_info_except_id,
             include_exam_description=settings.flag_include_exam_description,
             theme_dark=settings.flag_theme_dark,
-        ),
-        his=HisConfig(
-            base_url=settings.his_base_url,
-            api_key=settings.his_api_key,
-            timeout=settings.his_timeout_s,
-            retry=settings.his_retry,
         ),
         dicomweb=DicomwebConfig(
             base_url=settings.dicomweb_base_url,

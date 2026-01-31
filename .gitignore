@@ -9,4 +9,10 @@ __pycache__/
 data/
 .claude/
 *.egg-info/
-=0.21.0
+
+# 內部開發文件
+photo_pacs_PRD.md
+UI_text.md
+specs/
+docs/
+AGENTS.md

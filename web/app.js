@@ -3,7 +3,6 @@ const panels = document.querySelectorAll(".tab-panel");
 const statusPill = document.getElementById("statusPill");
 
 const patientIdInput = document.getElementById("patientId");
-const chartNoInput = document.getElementById("chartNo");
 const patientNameInput = document.getElementById("patientName");
 const birthDateInput = document.getElementById("birthDate");
 const sexInput = document.getElementById("sex");
@@ -53,9 +52,6 @@ const state = {
 
 const errorMessages = {
   VALIDATION_ERROR: "欄位未填完整或格式錯誤。",
-  PATIENT_NOT_FOUND: "病歷號查不到，請確認病歷號是否正確。",
-  PATIENT_ID_MISMATCH: "患者ID與病歷號不一致，請修正。",
-  HIS_UNAVAILABLE: "HIS 無法連線或逾時。",
   PACS_TIMEOUT: "PACS 連線逾時，請稍後再試。",
   PACS_REJECTED: "PACS 拒絕連線或傳輸失敗。",
   INTERNAL_ERROR: "系統發生錯誤，請稍後再試。",
@@ -160,21 +156,17 @@ albumInput.addEventListener("change", (event) => {
 
 function updateSubmitState() {
   const valid =
-    state.images.length > 0 &&
-    (patientIdInput.value.trim() || chartNoInput.value.trim());
+    state.images.length > 0 && patientIdInput.value.trim();
   submitBtn.disabled = !valid;
 }
 
-[patientIdInput, chartNoInput].forEach((input) =>
-  input.addEventListener("input", updateSubmitState)
-);
+patientIdInput.addEventListener("input", updateSubmitState);
 
 document.querySelectorAll("[data-clear]").forEach((button) => {
   button.addEventListener("click", () => {
     const target = button.dataset.clear;
     if (target === "patient") {
       patientIdInput.value = "";
-      chartNoInput.value = "";
       patientNameInput.value = "";
       birthDateInput.value = "";
       sexInput.value = "";
@@ -197,9 +189,6 @@ function buildFormData() {
   state.images.forEach((item) => formData.append("images[]", item.file));
   if (patientIdInput.value.trim()) {
     formData.append("patientId", patientIdInput.value.trim());
-  }
-  if (chartNoInput.value.trim()) {
-    formData.append("chartNo", chartNoInput.value.trim());
   }
   if (patientNameInput.value.trim()) {
     formData.append("patientName", patientNameInput.value.trim());
@@ -238,7 +227,6 @@ async function submitStudy() {
     setStatus("送信完成", "ok");
     clearImages();
     patientIdInput.value = "";
-    chartNoInput.value = "";
     patientNameInput.value = "";
     birthDateInput.value = "";
     sexInput.value = "";
@@ -312,12 +300,6 @@ function buildSettingsPayload() {
       includePatientInfoExceptId: flagPatientInfo.checked,
       includeExamDescription: flagExamDescription.checked,
       themeDark: flagThemeDark.checked,
-    },
-    his: {
-      baseUrl: null,
-      apiKey: null,
-      timeout: 5,
-      retry: 0,
     },
   };
 }

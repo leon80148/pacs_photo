@@ -47,38 +47,6 @@ def test_create_study_success_multi_image(make_client):
     assert all(ds.PatientID == "P-001" for ds in datasets)
 
 
-def test_create_study_chart_no_uses_mock_his(make_client):
-    client, settings = make_client()
-
-    files = [("images[]", ("one.jpg", _make_image_bytes(), "image/jpeg"))]
-    response = client.post(
-        "/api/studies",
-        files=files,
-        data={"chartNo": "CH-777"},
-    )
-
-    assert response.status_code == 200
-    dicom_files = list(settings.dicom_dir.glob("*.dcm"))
-    assert dicom_files
-    dataset = pydicom.dcmread(str(dicom_files[0]))
-    assert dataset.PatientID == "MOCK-CH-777"
-
-
-def test_create_study_patient_id_mismatch(make_client):
-    client, _ = make_client()
-
-    files = [("images[]", ("one.jpg", _make_image_bytes(), "image/jpeg"))]
-    response = client.post(
-        "/api/studies",
-        files=files,
-        data={"patientId": "OTHER", "chartNo": "CH-123"},
-    )
-
-    assert response.status_code == 409
-    payload = response.json()
-    assert payload["code"] == "PATIENT_ID_MISMATCH"
-
-
 def test_create_study_invalid_image(make_client):
     client, _ = make_client()
 

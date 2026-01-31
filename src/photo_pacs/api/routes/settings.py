@@ -10,7 +10,6 @@ from photo_pacs.services.settings_store import (
 )
 from photo_pacs.settings import Settings, get_settings
 
-
 router = APIRouter()
 
 

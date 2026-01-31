@@ -16,7 +16,6 @@ def make_client(tmp_path):
             "settings_path": tmp_path / "settings.json",
             "keep_files_on_success": True,
             "pacs_backend": "mock",
-            "his_backend": "mock",
         }
         if overrides:
             params.update(overrides)

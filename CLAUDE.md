@@ -42,28 +42,24 @@ black src/ tests/
 
 ### 請求流程（POST /api/studies）
 
-表單驗證 → HIS 查詢病患（可選）→ 儲存上傳檔 → PIL 影像轉 DICOM Secondary Capture → C-STORE 送 PACS → 清除暫存 → 回應結果
+表單驗證 → 儲存上傳檔 → PIL 影像轉 DICOM Secondary Capture → C-STORE 送 PACS → 清除暫存 → 回應結果
 
 ### 可插拔後端（Strategy + Factory 模式）
 
-PACS 與 HIS 後端透過 Protocol 定義介面，以 `PHOTO_PACS_PACS_BACKEND` 和 `PHOTO_PACS_HIS_BACKEND` 環境變數選擇實作：
+PACS 後端透過 Protocol 定義介面，以 `PHOTO_PACS_PACS_BACKEND` 環境變數選擇實作：
 
 - **PACS**: `mock` | `cstore` | `dicomweb`（dicomweb 尚未實作）
   - 介面: `src/photo_pacs/pacs/base.py`
   - 工廠: `src/photo_pacs/pacs/__init__.py` → `get_pacs_sender()`
-- **HIS**: `mock` | `http`
-  - 介面: `src/photo_pacs/his/base.py`
-  - 工廠: `src/photo_pacs/his/__init__.py` → `get_his_client()`
 
 ### 關鍵模組
 
 | 模組 | 職責 |
 |------|------|
-| `api/routes/studies.py` | 核心上傳端點：驗證、HIS 查詢、轉檔、送 PACS |
+| `api/routes/studies.py` | 核心上傳端點：驗證、轉檔、送 PACS |
 | `services/conversion.py` | PIL 影像 → pydicom Dataset（Secondary Capture） |
 | `services/settings_store.py` | JSON 檔案持久化運行時設定 |
 | `pacs/cstore.py` | pynetdicom C-ECHO/C-STORE 實作 |
-| `his/http.py` | httpx HIS API 客戶端 |
 | `settings.py` | Pydantic BaseSettings，所有環境變數（前綴 `PHOTO_PACS_`） |
 | `middleware.py` | Request ID 產生、指標計數 |
 
@@ -71,7 +67,7 @@ PACS 與 HIS 後端透過 Protocol 定義介面，以 `PHOTO_PACS_PACS_BACKEND` 
 
 `web/` 目錄下的靜態 PWA（HTML/JS/CSS），由 FastAPI 掛載為 static files。無前端建置步驟。
 
-設定頁面依 `pacs_backend` 自動顯示對應的連線卡片（C-STORE 或 DICOMweb），本機送信端與 DICOM 寫入收進「進階設定」摺疊區塊，HIS 機敏資訊僅靠 `.env` 設定。
+設定頁面依 `pacs_backend` 自動顯示對應的連線卡片（C-STORE 或 DICOMweb），本機送信端與 DICOM 寫入收進「進階設定」摺疊區塊。
 
 ### 部署
 
@@ -82,13 +78,8 @@ PACS 與 HIS 後端透過 Protocol 定義介面，以 `PHOTO_PACS_PACS_BACKEND` 
 
 ## 開發方法論（SDD + TDD）
 
-遵循 `AGENTS.md` 定義的流程：
-
-1. **規格先行**：新功能先建立/更新 `specs/<feature>.md`
-2. **測試先行**：針對驗收標準先寫失敗測試 → 最小實作通過 → 重構
-3. **一次一條驗收標準**，避免大範圍改動
-4. **需要假設時**記錄在 `docs/assumptions.md`（含日期與理由）
-5. **不可逆決策**記錄在 `docs/decisions/YYYYMMDD-topic.md`
+1. **測試先行**：針對驗收標準先寫失敗測試 → 最小實作通過 → 重構
+2. **一次一條驗收標準**，避免大範圍改動
 
 ## 測試慣例
 
@@ -99,7 +90,7 @@ PACS 與 HIS 後端透過 Protocol 定義介面，以 `PHOTO_PACS_PACS_BACKEND` 
 ## 設定管理
 
 - **靜態設定**：環境變數，前綴 `PHOTO_PACS_`，由 `settings.py` 的 Pydantic BaseSettings 解析
-- **運行時設定**：`data/settings.json`，可透過 `PUT /api/settings` 即時修改 PACS/HIS 參數
+- **運行時設定**：`data/settings.json`，可透過 `PUT /api/settings` 即時修改 PACS 參數
 - **後端模式查詢**：`GET /api/settings/info` 回傳 `{ "pacsBackend": "..." }`，前端據此切換 UI
 - 參考 `.env.example` 取得完整變數清單（分組註解，不常改的參數預設註解掉）
 
@@ -114,7 +105,5 @@ PACS 與 HIS 後端透過 Protocol 定義介面，以 `PHOTO_PACS_PACS_BACKEND` 
 | HTTP | 錯誤碼 | 情境 |
 |------|--------|------|
 | 400 | VALIDATION_ERROR | 表單驗證失敗 |
-| 404 | PATIENT_NOT_FOUND | HIS 查無病患 |
-| 409 | PATIENT_ID_MISMATCH | HIS 回傳 ID 不一致 |
-| 502 | HIS_UNAVAILABLE / PACS_REJECTED | 外部系統錯誤 |
+| 502 | PACS_REJECTED | PACS 拒絕傳輸 |
 | 504 | PACS_TIMEOUT | PACS 連線逾時 |

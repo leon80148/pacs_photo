@@ -8,7 +8,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydicom.uid import generate_uid
 
 from photo_pacs.api.schemas import InstanceStatus, PacsInfo, StudyResponse
-from photo_pacs.his import HisNotFound, HisUnavailable, get_his_client
 from photo_pacs.logging import get_logger
 from photo_pacs.metrics import metrics
 from photo_pacs.pacs import get_pacs_sender
@@ -19,10 +18,12 @@ from photo_pacs.services.conversion import (
     PatientInfo,
     image_to_dicom,
 )
-from photo_pacs.services.settings_store import SettingsStore, build_default_runtime_settings
+from photo_pacs.services.settings_store import (
+    SettingsStore,
+    build_default_runtime_settings,
+)
 from photo_pacs.settings import Settings, get_settings
 from photo_pacs.storage.local import LocalFileStore
-
 
 router = APIRouter()
 logger = get_logger("photo_pacs.studies")
@@ -62,7 +63,6 @@ async def create_study(request: Request, settings: Settings = Depends(get_settin
         raise HTTPException(status_code=400, detail="VALIDATION_ERROR")
 
     patient_id = _get_form_value(form, "patientId")
-    chart_no = _get_form_value(form, "chartNo")
     patient_name = _get_form_value(form, "patientName")
     birth_date = _get_form_value(form, "birthDate")
     sex = _get_form_value(form, "sex")
@@ -76,7 +76,7 @@ async def create_study(request: Request, settings: Settings = Depends(get_settin
         metrics.inc("validation_error")
         raise HTTPException(status_code=400, detail="VALIDATION_ERROR")
 
-    if not patient_id and not chart_no:
+    if not patient_id:
         metrics.inc("validation_error")
         raise HTTPException(status_code=400, detail="VALIDATION_ERROR")
 
@@ -85,38 +85,6 @@ async def create_study(request: Request, settings: Settings = Depends(get_settin
         build_default_runtime_settings(settings),
     )
     runtime_settings = settings_store.load()
-
-    if chart_no:
-        if settings.his_backend == "http" and not runtime_settings.his.base_url:
-            metrics.inc("his_unavailable")
-            raise HTTPException(status_code=502, detail="HIS_UNAVAILABLE")
-
-        his_client = get_his_client(settings, runtime_settings)
-        try:
-            patient = his_client.lookup_by_chart_no(chart_no)
-        except HisNotFound as exc:
-            metrics.inc("his_not_found")
-            raise HTTPException(status_code=404, detail="PATIENT_NOT_FOUND") from exc
-        except HisUnavailable as exc:
-            metrics.inc("his_unavailable")
-            raise HTTPException(status_code=502, detail="HIS_UNAVAILABLE") from exc
-
-        if patient_id and patient_id != patient.patient_id:
-            metrics.inc("patient_id_mismatch")
-            raise HTTPException(status_code=409, detail="PATIENT_ID_MISMATCH")
-
-        if not patient_id:
-            patient_id = patient.patient_id
-        if not patient_name:
-            patient_name = patient.name
-        if not birth_date:
-            birth_date = patient.birth_date
-        if not sex:
-            sex = patient.sex
-
-    if not patient_id:
-        metrics.inc("validation_error")
-        raise HTTPException(status_code=400, detail="VALIDATION_ERROR")
 
     upload_id = str(uuid4())
     store = LocalFileStore(settings.upload_dir, settings.dicom_dir)

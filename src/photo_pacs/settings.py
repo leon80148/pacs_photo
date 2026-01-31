@@ -13,6 +13,7 @@ class Settings(BaseSettings):
         env_prefix="PHOTO_PACS_",
         env_file=".env",
         env_file_encoding="utf-8",
+        extra="ignore",
     )
 
     app_name: str = "photo_pacs"
@@ -51,12 +52,6 @@ class Settings(BaseSettings):
     flag_include_patient_info_except_id: bool = True
     flag_include_exam_description: bool = True
     flag_theme_dark: bool = True
-
-    his_backend: Literal["mock", "http"] = "mock"
-    his_base_url: str | None = None
-    his_api_key: str | None = None
-    his_timeout_s: int = Field(default=5, ge=1, le=60)
-    his_retry: int = Field(default=0, ge=0, le=5)
 
     max_upload_mb: int = Field(default=20, ge=1, le=200)
 
