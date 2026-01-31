@@ -25,13 +25,22 @@ cp .env.example .env
 
 **第 3 步：編輯 `.env`**
 
-用文字編輯器打開 `.env`，修改這幾行（其他不用動）：
+用文字編輯器打開 `.env`，依照你的 PACS 類型修改（其他不用動）：
+
+**C-STORE（傳統 DICOM，適合區網 PACS）：**
 
 ```env
-PHOTO_PACS_PACS_BACKEND=cstore             # 使用傳統 DICOM 模式
+PHOTO_PACS_PACS_BACKEND=cstore
 PHOTO_PACS_PACS_HOST=192.168.x.x           # 改成你的 PACS 伺服器 IP
 PHOTO_PACS_PACS_PORT=104                    # PACS 的 port（通常是 104）
 PHOTO_PACS_PACS_CALLED_AET=PACS            # PACS 的 AE Title
+```
+
+**DICOMweb（STOW-RS over HTTPS，適合雲端 PACS）：**
+
+```env
+PHOTO_PACS_PACS_BACKEND=dicomweb
+PHOTO_PACS_DICOMWEB_BASE_URL=https://host/dcm4chee-arc/aets/DCM4CHEE/rs
 ```
 
 > 不確定這些值？問你的 PACS 管理員。如果只是想先試用，不用改任何東西，預設的 mock 模式會模擬送信成功。
@@ -121,11 +130,12 @@ docker compose up -d --build
 
 ### 設定 PACS 連線
 
-切換到「**設定**」分頁，可以修改 PACS 伺服器的 IP、Port、AE Title。
+切換到「**設定**」分頁，依照你使用的模式調整連線參數：
+
+- **C-STORE 模式**：修改 PACS 伺服器的 IP、Port、AE Title，用「**測試 C-ECHO**」確認連線
+- **DICOMweb 模式**：修改 Base URL、TLS 驗證、逾時秒數，用「**測試連線**」確認連線
 
 改完後按「**儲存設定**」即可，不需要重啟。
-
-可以用「**測試 C-ECHO**」按鈕確認連線是否正常。
 
 ## 更多資訊
 

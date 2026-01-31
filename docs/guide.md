@@ -35,7 +35,7 @@ FastAPI Gateway（port 9470）
 - **C-STORE**：傳統 DICOM 協定，直接透過 TCP 連線。適合區網內的 PACS。
 - **DICOMweb**：透過 HTTPS REST API（STOW-RS）。適合雲端 PACS 或需要穿越防火牆的場景。
 
-透過 `.env` 的 `PACS_BACKEND` 切換模式，程式碼不用改。
+透過 `.env` 的 `PHOTO_PACS_PACS_BACKEND` 切換模式，程式碼不用改。
 
 ---
 
