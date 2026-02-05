@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -15,11 +18,25 @@ from photo_pacs.middleware import metrics_middleware, request_id_middleware
 from photo_pacs.settings import get_settings
 
 
+def _find_web_dir() -> Path:
+    candidates: list[Path] = []
+    if getattr(sys, "frozen", False):
+        base = Path(getattr(sys, "_MEIPASS", Path(sys.executable).resolve().parent))
+        candidates.append(base / "web")
+        candidates.append(Path(sys.executable).resolve().parent / "web")
+    candidates.append(Path(__file__).resolve().parents[2] / "web")
+    candidates.append(Path.cwd() / "web")
+    for candidate in candidates:
+        if candidate.is_dir():
+            return candidate
+    return candidates[-1]
+
+
 def create_app() -> FastAPI:
     configure_logging()
     settings = get_settings()
 
-    app = FastAPI(title="photo_pacs", version="0.1.0")
+    app = FastAPI(title="photo_pacs", version="0.1.1")
     app.state.settings = settings
     app.state.request_id_header = settings.request_id_header
 
@@ -82,7 +99,8 @@ def create_app() -> FastAPI:
             headers={settings.request_id_header: request_id or ""},
         )
 
-    app.mount("/", StaticFiles(directory="web", html=True), name="web")
+    web_dir = _find_web_dir()
+    app.mount("/", StaticFiles(directory=str(web_dir), html=True), name="web")
 
     return app
 

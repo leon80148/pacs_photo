@@ -1,0 +1,46 @@
+[photo_pacs]
+# Server
+server_host=0.0.0.0
+server_port=9470
+
+# PACS backend: mock | cstore | dicomweb
+pacs_backend=mock
+
+# C-STORE settings
+pacs_host=127.0.0.1
+pacs_port=104
+pacs_called_aet=PACS
+local_calling_aet=PHOTO_PACS
+
+# C-STORE TLS (optional)
+# pacs_tls=false
+# pacs_tls_ca_file=
+# pacs_tls_cert_file=
+# pacs_tls_key_file=
+
+# DICOMweb settings
+# dicomweb_base_url=https://host/dcm4chee-arc/aets/DCM4CHEE/rs
+# dicomweb_verify_tls=true
+# dicomweb_timeout_s=30
+# dicomweb_auth_method=none
+# dicomweb_username=
+# dicomweb_password=
+# dicomweb_token=
+
+# File paths
+upload_dir=data/uploads
+dicom_dir=data/dicom
+settings_path=data/settings.json
+keep_files_on_success=false
+max_upload_mb=20
+
+# DICOM image defaults
+local_modality=OT
+local_resize_max=1024
+local_transfer_syntax=1.2.840.10008.1.2
+local_charset=ISO_IR 192
+
+# Feature flags
+flag_include_patient_info_except_id=true
+flag_include_exam_description=true
+flag_theme_dark=true

@@ -98,6 +98,31 @@ docker compose up -d --build
 
 完成後，用 `https://pacs.你的域名.com` 就能從任何地方存取。
 
+## Windows 安裝包（免 Docker）
+
+如果你要提供給其他人「下載後直接使用」，請用這個方式打包。
+
+**打包（給開發者）**
+
+1. 在專案根目錄執行：
+
+```bash
+.\scripts\package_windows.ps1
+```
+
+2. 產出檔案在 `release\PhotoPacs-win64.zip`
+3. 若 `release` 正在被使用（例如正在執行 EXE），會改產生帶時間戳的檔名：`release\PhotoPacs-win64-YYYYMMDD-HHMMSS.zip`
+4. 想要單一 EXE 檔可用：`.\scripts\package_windows.ps1 -OneFile`
+
+**安裝（給使用者）**
+
+1. 解壓縮 `PhotoPacs-win64.zip`
+2. 編輯同資料夾的 `config.ini`（必須與 `PhotoPacs.exe` 放在同一層）
+3. 雙擊 `PhotoPacs.exe`
+4. 瀏覽器打開 `http://<這台電腦的IP>:9470`
+
+> 若要指定其他設定檔路徑，可用環境變數 `PHOTO_PACS_CONFIG` 指向 `config.ini`。
+
 ## 安裝到手機桌面（PWA）
 
 透過 HTTPS（Cloudflare Tunnel）存取時，可以把它安裝成像 App 一樣的桌面捷徑：
@@ -144,3 +169,7 @@ docker compose up -d --build
 ## License
 
 MIT
+
+## 維護者發佈流程
+
+見 `docs/release.md`。

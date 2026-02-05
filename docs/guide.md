@@ -133,6 +133,8 @@ FastAPI Gateway（port 9470）
 |------|------|------|
 | `PACS_BACKEND` | PACS 後端模式（`mock` / `cstore` / `dicomweb`） | `mock` |
 | `ENVIRONMENT` | 執行環境 | `dev` |
+| `SERVER_HOST` | 服務綁定 IP | `0.0.0.0` |
+| `SERVER_PORT` | 服務埠號 | `9470` |
 
 ### 檔案路徑
 
@@ -198,6 +200,32 @@ FastAPI Gateway（port 9470）
 | `CLOUDFLARE_TUNNEL_TOKEN` | 從 Zero Trust 面板取得的 Tunnel Token |
 
 Tunnel 的 Public Hostname Service 填 `http://photo_pacs:9470`。
+
+---
+
+## INI 設定檔（config.ini）
+
+除了 `.env`，也可以用 `config.ini` 放重要參數，給非技術使用者編輯。
+範例檔：`config.ini.example`。
+
+**讀取順序（優先權由高到低）**
+
+1. 環境變數
+2. `config.ini`
+3. `.env`
+
+**基本格式**
+
+```ini
+[photo_pacs]
+pacs_backend=mock
+pacs_host=127.0.0.1
+pacs_port=104
+```
+
+**指定設定檔路徑**
+
+可用環境變數或 `.env` 的 `PHOTO_PACS_CONFIG` 指向自訂的 `config.ini`。
 
 ---
 
