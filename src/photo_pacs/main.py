@@ -8,6 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from photo_pacs.api.routes.ocr import router as ocr_router
 from photo_pacs.api.routes.pacs import router as pacs_router
 from photo_pacs.api.routes.settings import router as settings_router
 from photo_pacs.api.routes.studies import router as studies_router
@@ -46,6 +47,7 @@ def create_app() -> FastAPI:
     app.include_router(studies_router)
     app.include_router(pacs_router)
     app.include_router(settings_router)
+    app.include_router(ocr_router)
 
     @app.get("/healthz", response_model=HealthResponse)
     async def healthz() -> HealthResponse:
@@ -84,7 +86,9 @@ def create_app() -> FastAPI:
         )
 
     @app.exception_handler(Exception)
-    async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    async def unhandled_exception_handler(
+        request: Request, exc: Exception
+    ) -> JSONResponse:
         logger = get_logger("photo_pacs")
         request_id = getattr(request.state, "request_id", None)
         logger.error(

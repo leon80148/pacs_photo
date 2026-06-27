@@ -146,6 +146,19 @@ class Settings(BaseSettings):
 
     max_upload_mb: int = Field(default=20, ge=1, le=200)
 
+    # 條碼掃描器（前端即時生效，存於 runtime settings；此處為預設值）。
+    scanner_roi_height_ratio: float = Field(default=0.4, ge=0.2, le=1.0)
+    scanner_roi_target_width: int = Field(default=800, ge=320, le=1280)
+    scanner_detect_interval_ms: int = Field(default=100, ge=0, le=500)
+
+    # 健保卡 OCR 偵測解析度：越大越準、越慢。RapidOCR 為 lru_cache 單例，
+    # 改值需重啟（部署時調），因此只走環境變數、不放 UI 即時調整。
+    ocr_det_side_len: int = Field(default=960, ge=320, le=1536)
+
+    # OCR 模型版本：PPOCRV6（預設、2026/06 最準）、PPOCRV5、PPOCRV4 可退回。
+    # 同為 lru_cache 單例，改值需重啟。
+    ocr_version: Literal["PPOCRV4", "PPOCRV5", "PPOCRV6"] = "PPOCRV6"
+
     @classmethod
     def settings_customise_sources(
         cls,

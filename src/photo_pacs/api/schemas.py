@@ -50,6 +50,16 @@ class SettingsResponse(BaseModel):
     settings: RuntimeSettings
 
 
+class PatientIdOcrResponse(BaseModel):
+    status: str
+    patient_id: str = Field(alias="patientId")
+    backend: str
+    checksum_valid: bool = Field(default=False, alias="checksumValid")
+    elapsed_ms: int = Field(default=0, alias="elapsedMs")
+
+    model_config = {"populate_by_name": True}
+
+
 class HealthResponse(BaseModel):
     status: str
 
