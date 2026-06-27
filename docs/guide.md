@@ -56,6 +56,13 @@ FastAPI Gateway（port 9470）
 
 患者 ID 是唯一必填欄位。其他空白的話，DICOM 對應標籤會留空。
 
+**快速填入患者 ID**：
+
+- **AI 辨識健保卡**：點「AI 辨識健保卡」拍健保卡，後端用 RapidOCR（PP-OCRv6）辨識身分證字號並驗證內政部檢查碼後自動填入。檢查碼未通過會以紅字 + 提示框警示，請務必人工核對。
+- **條碼掃描**：點患者 ID 輸入框旁的條碼圖示，掃描 CODE 128 條碼自動填入。優先用瀏覽器原生 BarcodeDetector，不支援時（如 iOS Safari）自動載入本地 html5-qrcode。
+
+兩者都只填入患者 ID 欄位，不會把健保卡當影像上傳。
+
 #### 檢查資訊
 
 | 欄位 | 說明 |
@@ -110,6 +117,8 @@ FastAPI Gateway（port 9470）
 展開「進階設定」可調整：
 
 **本機送信端**：送信元 AET、Modality 代碼、影像長邊尺寸、Transfer Syntax、字元集
+
+**條碼掃描**：ROI 高度比例、ROI 目標寬度、偵測間隔（ms）。調整掃描效能與容錯，儲存後即時生效。
 
 **DICOM 寫入旗標**：是否寫入患者資訊（ID 除外）、是否寫入檢查記述
 
@@ -185,6 +194,21 @@ FastAPI Gateway（port 9470）
 | `LOCAL_TRANSFER_SYNTAX` | Transfer Syntax UID | `1.2.840.10008.1.2` |
 | `LOCAL_CHARSET` | 字元集 | `ISO_IR 192` |
 
+### 健保卡 OCR（需 `pip install -e .[ocr]`）
+
+| 變數 | 說明 | 預設 |
+|------|------|------|
+| `OCR_VERSION` | PP-OCR 模型版本（`PPOCRV6` / `PPOCRV5` / `PPOCRV4`） | `PPOCRV6` |
+| `OCR_DET_SIDE_LEN` | 偵測解析度（320–1536，越大越準越慢，改值需重啟） | `960` |
+
+### 條碼掃描器（前端即時生效，此為預設值）
+
+| 變數 | 說明 | 預設 |
+|------|------|------|
+| `SCANNER_ROI_HEIGHT_RATIO` | 中央橫條 ROI 高度比例（0.2–1.0） | `0.4` |
+| `SCANNER_ROI_TARGET_WIDTH` | ROI downscale 目標寬度（px） | `800` |
+| `SCANNER_DETECT_INTERVAL_MS` | 偵測節流間隔（ms） | `100` |
+
 ### 功能旗標
 
 | 變數 | 說明 | 預設 |
@@ -234,6 +258,7 @@ pacs_port=104
 | 方法 | 路徑 | 說明 |
 |------|------|------|
 | `POST` | `/api/studies` | 上傳影像並送至 PACS |
+| `POST` | `/api/patient-id/ocr` | 健保卡 OCR 辨識身分證（需 `[ocr]` 依賴） |
 | `POST` | `/api/pacs/echo` | C-ECHO / DICOMweb 連線測試 |
 | `GET` | `/api/settings` | 讀取運行時設定 |
 | `PUT` | `/api/settings` | 更新運行時設定 |
@@ -295,6 +320,29 @@ curl -X POST http://localhost:9470/api/studies \
 }
 ```
 
+### POST /api/patient-id/ocr
+
+上傳健保卡影像，用 RapidOCR（PP-OCRv6）辨識台灣身分證字號。使用 `multipart/form-data`，欄位 `card_image`（單張影像）。需安裝 `[ocr]` 依賴，否則回 `503 OCR_UNAVAILABLE`。
+
+```bash
+curl -X POST http://localhost:9470/api/patient-id/ocr \
+  -F "card_image=@card.jpg"
+```
+
+**成功回應**（200）：
+
+```json
+{
+  "status": "success",
+  "patientId": "A123456789",
+  "backend": "rapidocr-ppocrv6",
+  "checksumValid": true,
+  "elapsedMs": 320
+}
+```
+
+`checksumValid` 為 `false` 時代表辨識結果未通過內政部檢查碼（可能認錯一碼），前端會提示人工核對。
+
 ### POST /api/pacs/echo
 
 測試 PACS 連線。
@@ -346,6 +394,9 @@ python -m venv .venv
 # 安裝（含開發依賴）
 pip install -e .[dev]
 
+# 若需要健保卡 OCR（會下載 PP-OCRv6 模型，數百 MB）
+pip install -e .[dev,ocr]
+
 # 複製設定檔
 cp .env.example .env
 
@@ -373,10 +424,12 @@ photo_pacs/
 │   │   ├── schemas.py       # Pydantic 回應模型
 │   │   └── routes/
 │   │       ├── studies.py   # 上傳端點
+│   │       ├── ocr.py       # 健保卡 OCR 端點
 │   │       ├── pacs.py      # C-ECHO / DICOMweb 測試
 │   │       └── settings.py  # 設定 API
 │   ├── services/
 │   │   ├── conversion.py    # 影像 → DICOM 轉換（PIL + pydicom）
+│   │   ├── patient_id_ocr.py # 健保卡 OCR（RapidOCR）+ 身分證 checksum
 │   │   └── settings_store.py # JSON 持久化運行時設定
 │   ├── pacs/
 │   │   ├── base.py          # PACS 送信端介面（Protocol）
@@ -391,8 +444,9 @@ photo_pacs/
 │   ├── styles.css           # 樣式
 │   ├── sw.js                # Service Worker（離線快取）
 │   ├── manifest.json        # PWA manifest
+│   ├── assets/              # 本地第三方資源（html5-qrcode）
 │   └── icons/               # App 圖示
-├── tests/                   # pytest 測試（19 個測試案例）
+├── tests/                   # pytest 測試
 ├── docs/                    # 進階文件
 ├── Dockerfile
 ├── docker-compose.yml
@@ -419,7 +473,9 @@ pytest -v                       # 詳細輸出
 | HTTP | 代碼 | 說明 |
 |------|------|------|
 | 400 | `VALIDATION_ERROR` | 表單驗證失敗（缺少必填欄位、格式錯誤、無效影像） |
+| 422 | `PATIENT_ID_NOT_FOUND` | 健保卡 OCR 辨識不到身分證字號 |
 | 502 | `PACS_REJECTED` | PACS 拒絕傳輸（C-STORE association 失敗或 STOW-RS 錯誤） |
+| 503 | `OCR_UNAVAILABLE` | OCR 後端未安裝（`[ocr]` 依賴）或推論失敗 |
 | 504 | `PACS_TIMEOUT` | PACS 連線逾時 |
 
 ---

@@ -40,7 +40,56 @@
             <div class="grid">
               <label>
                 患者ID（Patient ID）
-                <input id="patientId" placeholder="例如：A123456" />
+                <div class="input-with-action">
+                  <input
+                    id="patientId"
+                    placeholder="例如：A123456789"
+                    inputmode="text"
+                    autocomplete="off"
+                    spellcheck="false"
+                    autocapitalize="characters"
+                  />
+                  <button
+                    class="scan-btn"
+                    type="button"
+                    id="scanBarcodeBtn"
+                    title="掃描條碼"
+                    aria-label="開啟條碼掃描器"
+                  >
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+                      <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+                      <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+                      <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+                      <line x1="7" y1="8" x2="7" y2="16" />
+                      <line x1="11" y1="8" x2="11" y2="16" />
+                      <line x1="15" y1="8" x2="15" y2="12" />
+                      <line x1="19" y1="8" x2="19" y2="16" />
+                    </svg>
+                  </button>
+                </div>
+                <div class="field-actions">
+                  <button class="ghost small" type="button" id="ocrCardBtn">
+                    AI 辨識健保卡
+                  </button>
+                  <span class="hint inline" id="ocrStatus">可拍健保卡自動填入</span>
+                  <input
+                    id="ocrCardInput"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                  />
+                </div>
               </label>
               <label>
                 患者姓名
@@ -211,6 +260,32 @@
                   </div>
                 </div>
                 <div class="advanced-section">
+                  <h3>條碼掃描</h3>
+                  <div class="grid">
+                    <label>
+                      ROI 高度比例（0.2–1.0）
+                      <input
+                        id="scannerRoiHeight"
+                        type="number"
+                        step="0.1"
+                        min="0.2"
+                        max="1"
+                      />
+                    </label>
+                    <label>
+                      ROI 目標寬度（px）
+                      <input id="scannerRoiWidth" type="number" min="320" max="1280" />
+                    </label>
+                    <label>
+                      偵測間隔（ms）
+                      <input id="scannerInterval" type="number" min="0" max="500" />
+                    </label>
+                  </div>
+                  <p class="hint">
+                    越小越快、容錯越低。掃描成功時會顯示解碼耗時，可據此微調。
+                  </p>
+                </div>
+                <div class="advanced-section">
                   <h3>DICOM 寫入</h3>
                   <div class="grid">
                     <label class="switch">
@@ -246,5 +321,35 @@
         </section>
       </main>
     </div>
+
+    <div
+      id="scannerModal"
+      class="scanner-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="scannerTitle"
+      aria-hidden="true"
+    >
+      <div class="scanner-modal-content">
+        <div class="scanner-header">
+          <h2 id="scannerTitle">掃描條碼</h2>
+          <div class="scanner-actions">
+            <button
+              class="ghost"
+              type="button"
+              id="toggleTorchBtn"
+              aria-pressed="false"
+            >
+              開燈
+            </button>
+            <button class="ghost" type="button" id="closeScannerBtn">關閉</button>
+          </div>
+        </div>
+        <div id="scannerContainer"></div>
+        <p class="hint" id="scannerHint">將 CODE 128 條碼放在框內中央</p>
+      </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer" aria-live="polite"></div>
   </body>
 </html>

@@ -21,3 +21,4 @@ UI_text.md
 specs/*.tmp
 AGENTS.md
 CLAUDE.md
+.gstack/

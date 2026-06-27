@@ -335,8 +335,184 @@ button:hover {
 }
 
 #cameraInput,
-#albumInput {
+#albumInput,
+#ocrCardInput {
   display: none;
+}
+
+/* ─── 健保卡 OCR ─── */
+.input-with-action {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.input-with-action input {
+  flex: 1;
+  min-width: 0;
+}
+
+.scan-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(14, 165, 168, 0.15);
+  color: var(--accent-2);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.scan-btn:hover {
+  transform: translateY(-1px);
+}
+
+.field-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.ghost.small {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
+.hint.inline {
+  margin: 0;
+}
+
+/* ─── 條碼掃描 modal ─── */
+.scanner-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(6px);
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.scanner-modal.active {
+  display: flex;
+}
+
+.scanner-modal-content {
+  background: var(--card);
+  border-radius: 22px;
+  padding: 20px;
+  width: 100%;
+  max-width: 500px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.scanner-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.scanner-header h2 {
+  margin: 0;
+  font-family: "Space Grotesk", "Noto Sans TC", sans-serif;
+  font-size: 1.2rem;
+}
+
+.scanner-actions {
+  display: flex;
+  gap: 8px;
+}
+
+#scannerContainer {
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
+}
+
+#scannerContainer video {
+  width: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.scan-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.scan-frame {
+  border-radius: 8px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+  border: 2px solid var(--accent-2);
+  position: relative;
+}
+
+/* ─── Toast 通知 ─── */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  min-width: 240px;
+  max-width: min(360px, calc(100vw - 32px));
+  padding: 12px 18px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  cursor: pointer;
+  text-align: center;
+}
+
+.toast.toast-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.toast-success {
+  background: rgba(14, 165, 168, 0.15);
+  color: var(--accent-2);
+  border-color: rgba(14, 165, 168, 0.4);
+}
+
+.toast-error {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.toast-info {
+  background: var(--card);
+  color: var(--ink);
 }
 
 @keyframes floatIn {

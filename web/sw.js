@@ -1,4 +1,4 @@
-const CACHE_NAME = "photo-pacs-v1";
+const CACHE_NAME = "photo-pacs-v2";
 const ASSETS = [
   "/",
   "/index.html",
@@ -7,6 +7,7 @@ const ASSETS = [
   "/manifest.json",
   "/icons/icon-192.svg",
   "/icons/icon-512.svg",
+  "/assets/html5-qrcode.min.js",
 ];
 
 self.addEventListener("install", (event) => {

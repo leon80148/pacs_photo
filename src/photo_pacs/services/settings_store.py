@@ -43,11 +43,23 @@ class DicomwebConfig(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class ScannerConfig(BaseModel):
+    # 條碼偵測的中央橫條 ROI 高度比例（佔畫面高度）。越小越快、容錯越低。
+    roi_height_ratio: float = Field(default=0.4, alias="roiHeightRatio", ge=0.2, le=1.0)
+    # ROI downscale 後的目標寬度（px）。越小越快，但一維條碼需足夠水平解析度。
+    roi_target_width: int = Field(default=800, alias="roiTargetWidth", ge=320, le=1280)
+    # 兩次偵測的最小間隔（ms）；節流以降低 CPU 負擔。
+    detect_interval_ms: int = Field(default=100, alias="detectIntervalMs", ge=0, le=500)
+
+    model_config = {"populate_by_name": True}
+
+
 class RuntimeSettings(BaseModel):
     pacs: PacsConfig
     dicomweb: DicomwebConfig = Field(default_factory=DicomwebConfig)
     local_ae: LocalAEConfig = Field(alias="localAE")
     flags: FlagsConfig
+    scanner: ScannerConfig = Field(default_factory=ScannerConfig)
 
     model_config = {"populate_by_name": True}
 
@@ -76,6 +88,11 @@ def build_default_runtime_settings(settings: Settings) -> RuntimeSettings:
             verify_tls=settings.dicomweb_verify_tls,
             timeout=settings.dicomweb_timeout_s,
         ),
+        scanner=ScannerConfig(
+            roi_height_ratio=settings.scanner_roi_height_ratio,
+            roi_target_width=settings.scanner_roi_target_width,
+            detect_interval_ms=settings.scanner_detect_interval_ms,
+        ),
     )
 
 
@@ -102,5 +119,7 @@ class SettingsStore:
 
     def save(self, settings: RuntimeSettings) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        payload = json.dumps(settings.model_dump(by_alias=True), ensure_ascii=False, indent=2)
+        payload = json.dumps(
+            settings.model_dump(by_alias=True), ensure_ascii=False, indent=2
+        )
         self.path.write_text(payload, encoding="utf-8")

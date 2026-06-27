@@ -19,6 +19,12 @@ dependencies = [
 photo-pacs = "photo_pacs.cli:main"
 
 [project.optional-dependencies]
+ocr = [
+  # 健保卡 OCR：RapidOCR(ONNX)。PP-OCRv6 需 rapidocr 2026/06 後版本，
+  # pip 會裝符合下限的最新版；免裝 paddlepaddle（Docker/Linux 較穩）。
+  "rapidocr>=2.0.0",
+  "onnxruntime>=1.17.0",
+]
 dev = [
   "pytest>=8.0.0",
   "ruff>=0.3.0",

@@ -46,12 +46,24 @@ const flagThemeDark = document.getElementById("flagThemeDark");
 const saveSettingsBtn = document.getElementById("saveSettingsBtn");
 const settingsStatus = document.getElementById("settingsStatus");
 
+const ocrCardBtn = document.getElementById("ocrCardBtn");
+const ocrCardInput = document.getElementById("ocrCardInput");
+const ocrStatus = document.getElementById("ocrStatus");
+
+const scannerRoiHeight = document.getElementById("scannerRoiHeight");
+const scannerRoiWidth = document.getElementById("scannerRoiWidth");
+const scannerInterval = document.getElementById("scannerInterval");
+
+const toastContainer = document.getElementById("toastContainer");
+
 const state = {
   images: [],
 };
 
 const errorMessages = {
   VALIDATION_ERROR: "欄位未填完整或格式錯誤。",
+  PATIENT_ID_NOT_FOUND: "AI 找不到身分字號，請重拍或手動輸入。",
+  OCR_UNAVAILABLE: "AI 辨識服務目前不可用。",
   PACS_TIMEOUT: "PACS 連線逾時，請稍後再試。",
   PACS_REJECTED: "PACS 拒絕連線或傳輸失敗。",
   INTERNAL_ERROR: "系統發生錯誤，請稍後再試。",
@@ -69,6 +81,23 @@ function setStatus(text, type = "idle") {
     statusPill.style.color = "var(--accent-2)";
     statusPill.style.background = "rgba(14, 165, 168, 0.12)";
   }
+}
+
+function showToast(message, variant = "info", timeoutMs = 3200) {
+  if (!toastContainer) return;
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${variant}`;
+  toast.setAttribute("role", variant === "error" ? "alert" : "status");
+  toast.setAttribute("aria-live", variant === "error" ? "assertive" : "polite");
+  toast.textContent = message;
+  toastContainer.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add("toast-visible"));
+  const dismiss = () => {
+    toast.classList.remove("toast-visible");
+    toast.addEventListener("transitionend", () => toast.remove(), { once: true });
+  };
+  setTimeout(dismiss, timeoutMs);
+  toast.addEventListener("click", dismiss);
 }
 
 function switchTab(target) {
@@ -274,6 +303,15 @@ async function loadSettings() {
   flagExamDescription.checked = settings.flags.includeExamDescription;
   flagThemeDark.checked = settings.flags.themeDark;
 
+  if (settings.scanner) {
+    scannerConfig.roiHeightRatio = settings.scanner.roiHeightRatio ?? 0.4;
+    scannerConfig.roiTargetWidth = settings.scanner.roiTargetWidth ?? 800;
+    scannerConfig.detectIntervalMs = settings.scanner.detectIntervalMs ?? 100;
+    scannerRoiHeight.value = scannerConfig.roiHeightRatio;
+    scannerRoiWidth.value = scannerConfig.roiTargetWidth;
+    scannerInterval.value = scannerConfig.detectIntervalMs;
+  }
+
   applyTheme(flagThemeDark.checked);
 }
 
@@ -301,6 +339,11 @@ function buildSettingsPayload() {
       includeExamDescription: flagExamDescription.checked,
       themeDark: flagThemeDark.checked,
     },
+    scanner: {
+      roiHeightRatio: Number(scannerRoiHeight.value) || 0.4,
+      roiTargetWidth: Number(scannerRoiWidth.value) || 800,
+      detectIntervalMs: Number(scannerInterval.value) || 0,
+    },
   };
 }
 
@@ -317,6 +360,10 @@ async function saveSettings() {
     }
     settingsStatus.textContent = "已儲存";
     applyTheme(flagThemeDark.checked);
+    // 立即套用掃描器參數，免重整頁面即可生效。
+    scannerConfig.roiHeightRatio = Number(scannerRoiHeight.value) || 0.4;
+    scannerConfig.roiTargetWidth = Number(scannerRoiWidth.value) || 800;
+    scannerConfig.detectIntervalMs = Number(scannerInterval.value) || 0;
   } catch (error) {
     settingsStatus.textContent = "儲存失敗";
   }
@@ -401,6 +448,461 @@ async function applyBackendVisibility() {
   } catch {
     // 取得失敗時預設全部顯示
   }
+}
+
+// ─── 健保卡 AI OCR ───
+async function resizeImageForOcr(file, maxSide = 1280, quality = 0.85) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = reject;
+      image.src = url;
+    });
+    const longSide = Math.max(img.width, img.height);
+    if (longSide <= maxSide) {
+      return file;
+    }
+    const scale = maxSide / longSide;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.width * scale);
+    canvas.height = Math.round(img.height * scale);
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", quality)
+    );
+    if (!blob) {
+      return file;
+    }
+    return new File([blob], file.name || "card.jpg", { type: "image/jpeg" });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function recognizeCardImage(file) {
+  if (!file) return;
+  ocrStatus.textContent = "AI 辨識中...";
+  ocrCardBtn.disabled = true;
+  try {
+    const resized = await resizeImageForOcr(file);
+    const formData = new FormData();
+    formData.append("card_image", resized);
+    const response = await fetch("/api/patient-id/ocr", {
+      method: "POST",
+      body: formData,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const code = data.code || "INTERNAL_ERROR";
+      const message = errorMessages[code] || "辨識失敗，請手動輸入。";
+      ocrStatus.textContent = message;
+      showToast(message, "error");
+      return;
+    }
+    patientIdInput.value = (data.patientId || "").toUpperCase();
+    updateSubmitState();
+    // checksumValid=false 代表辨識結果未通過身分證檢查碼，極可能認錯一碼，
+    // 務必請使用者核對，避免歸錯病患。
+    const elapsed = data.elapsedMs ? `，辨識耗時 ${data.elapsedMs} ms` : "";
+    if (data.checksumValid === false) {
+      ocrStatus.textContent =
+        `AI 填入：${patientIdInput.value}（檢查碼未通過，請核對！${elapsed}）`;
+      patientIdInput.setAttribute("aria-invalid", "true");
+      showToast("辨識結果檢查碼未通過，請務必核對身分證字號", "error", 5000);
+    } else {
+      patientIdInput.removeAttribute("aria-invalid");
+      ocrStatus.textContent = `AI 已填入：${patientIdInput.value}${elapsed}`;
+      showToast("健保卡辨識成功", "success", 2400);
+    }
+  } catch (error) {
+    ocrStatus.textContent = "辨識失敗，請手動輸入。";
+    showToast("健保卡辨識失敗", "error");
+  } finally {
+    ocrCardBtn.disabled = false;
+  }
+}
+
+if (ocrCardBtn) {
+  ocrCardBtn.addEventListener("click", () => ocrCardInput.click());
+  ocrCardInput.addEventListener("change", (event) => {
+    const file = event.target.files[0];
+    if (file) recognizeCardImage(file);
+    ocrCardInput.value = "";
+  });
+}
+
+// ─── 條碼掃描器（原生 BarcodeDetector 優先，html5-qrcode 為 fallback）───
+const scanBarcodeBtn = document.getElementById("scanBarcodeBtn");
+const scannerModal = document.getElementById("scannerModal");
+const closeScannerBtn = document.getElementById("closeScannerBtn");
+const toggleTorchBtn = document.getElementById("toggleTorchBtn");
+const scannerHint = document.getElementById("scannerHint");
+let html5QrCode = null;
+let torchEnabled = false;
+let scannerActive = false;
+let lastScanText = "";
+let lastScanAt = 0;
+let nativeStream = null;
+let nativeRafId = null;
+let nativeVideoEl = null;
+let isDetecting = false;
+let useBarcodeDetector = false;
+let barcodeDetector = null;
+let lastDetectAt = 0;
+let scanStartedAt = 0;
+let scannerOpener = null;
+
+// 條碼掃描器可調參數（由設定頁載入並即時套用）。預設與後端 ScannerConfig 一致。
+const scannerConfig = {
+  roiHeightRatio: 0.4,
+  roiTargetWidth: 800,
+  detectIntervalMs: 100,
+};
+
+// ROI 裁切用的離屏 canvas：只把畫面中央橫條送進解碼器，
+// 大幅減少像素量並濾掉上下雜訊，CODE 128 解碼更快也更穩。
+const roiCanvas = document.createElement("canvas");
+const roiCtx = roiCanvas.getContext("2d", { willReadFrequently: true });
+
+// html5-qrcode 動態載入（僅原生 BarcodeDetector 不支援時，例如 iOS Safari）。
+// 放本地 assets，確保離線 / 內網環境也能 fallback。
+let html5QrLoaded = false;
+function loadHtml5Qrcode() {
+  if (html5QrLoaded || typeof Html5Qrcode !== "undefined") {
+    return Promise.resolve();
+  }
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "/assets/html5-qrcode.min.js";
+    s.onload = () => {
+      html5QrLoaded = true;
+      resolve();
+    };
+    s.onerror = () => reject(new Error("無法載入掃描元件"));
+    document.head.appendChild(s);
+  });
+}
+
+function getBarcodeFormats() {
+  return typeof Html5QrcodeSupportedFormats !== "undefined"
+    ? [Html5QrcodeSupportedFormats.CODE_128]
+    : [];
+}
+
+function getScannerBox() {
+  const width = Math.min(window.innerWidth * 0.8, 420);
+  const height = Math.max(80, Math.round(width * 0.45));
+  return { width: Math.round(width), height };
+}
+
+async function detectBarcodeDetectorSupport() {
+  if (!("BarcodeDetector" in window)) return false;
+  try {
+    const formats = await Promise.race([
+      BarcodeDetector.getSupportedFormats(),
+      new Promise((r) => setTimeout(() => r([]), 500)),
+    ]);
+    return formats.includes("code_128");
+  } catch {
+    return false;
+  }
+}
+
+function isRearCameraLabel(label) {
+  const l = (label || "").toLowerCase();
+  return (
+    l.includes("back") ||
+    l.includes("rear") ||
+    l.includes("environment") ||
+    l.includes("後")
+  );
+}
+
+async function chooseCamera() {
+  const cameras = await Html5Qrcode.getCameras();
+  if (!Array.isArray(cameras) || cameras.length === 0) {
+    throw new Error("NO_CAMERA");
+  }
+  const rear = cameras.find((c) => isRearCameraLabel(c.label));
+  return rear ? rear.id : cameras[cameras.length - 1].id;
+}
+
+async function getRearCameraStream() {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: {
+      facingMode: "environment",
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
+    },
+  });
+  const track = stream.getVideoTracks()[0];
+  const settings = track.getSettings();
+  if (settings.facingMode === "environment" || isRearCameraLabel(track.label)) {
+    return stream;
+  }
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const cameras = devices.filter((d) => d.kind === "videoinput");
+  const rearByLabel = cameras.find((d) => isRearCameraLabel(d.label));
+  if (rearByLabel && rearByLabel.deviceId !== settings.deviceId) {
+    stream.getTracks().forEach((t) => t.stop());
+    return navigator.mediaDevices.getUserMedia({
+      video: {
+        deviceId: { exact: rearByLabel.deviceId },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+    });
+  }
+  for (const cam of cameras) {
+    if (cam.deviceId === settings.deviceId) continue;
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({
+        video: {
+          deviceId: { exact: cam.deviceId },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      });
+      const fs = s.getVideoTracks()[0].getSettings();
+      if (
+        fs.facingMode === "environment" ||
+        isRearCameraLabel(s.getVideoTracks()[0].label)
+      ) {
+        stream.getTracks().forEach((t) => t.stop());
+        return s;
+      }
+      s.getTracks().forEach((t) => t.stop());
+    } catch {
+      // ignore – 試下一台鏡頭
+    }
+  }
+  return stream;
+}
+
+function setTorchButtonState(enabled, on = false) {
+  toggleTorchBtn.disabled = !enabled;
+  toggleTorchBtn.textContent = on ? "關燈" : "開燈";
+  toggleTorchBtn.setAttribute("aria-pressed", on ? "true" : "false");
+}
+
+function handleScan(decodedText) {
+  const text = decodedText.trim();
+  if (!text) return;
+  const now = Date.now();
+  if (text === lastScanText && now - lastScanAt < 1200) return;
+  lastScanText = text;
+  lastScanAt = now;
+  patientIdInput.value = text;
+  updateSubmitState();
+  // 量化：從開啟掃描到解碼成功的耗時，供調參參考。
+  const elapsed = scanStartedAt
+    ? Math.round(
+        (typeof performance !== "undefined" ? performance.now() : now) -
+          scanStartedAt
+      )
+    : 0;
+  closeScanner();
+  showToast(
+    elapsed ? `已掃描：${text}（${elapsed} ms）` : `已掃描：${text}`,
+    "success",
+    2400
+  );
+}
+
+// 把畫面中央橫條（全寬、上下各裁約 30%）downscale 後交給解碼器。
+// 一維條碼水平擺放，保留足夠水平解析度即可正確解碼。
+function detectFromRoi() {
+  const vw = nativeVideoEl.videoWidth;
+  const vh = nativeVideoEl.videoHeight;
+  if (!vw || !vh) return Promise.resolve([]);
+  const roiH = Math.max(1, Math.round(vh * scannerConfig.roiHeightRatio));
+  const sy = Math.round((vh - roiH) / 2);
+  const targetW = Math.min(vw, scannerConfig.roiTargetWidth);
+  const scale = targetW / vw;
+  roiCanvas.width = targetW;
+  roiCanvas.height = Math.max(1, Math.round(roiH * scale));
+  roiCtx.drawImage(
+    nativeVideoEl,
+    0, sy, vw, roiH,
+    0, 0, roiCanvas.width, roiCanvas.height
+  );
+  return barcodeDetector.detect(roiCanvas);
+}
+
+function nativeScanLoop(ts) {
+  if (!scannerActive) return;
+  nativeRafId = requestAnimationFrame(nativeScanLoop);
+  if (isDetecting || !nativeVideoEl || nativeVideoEl.readyState < 2) return;
+  // 節流：偵測間隔由設定決定（預設 100ms ≈ 10 次/秒），降低 CPU 負擔。
+  if (ts && ts - lastDetectAt < scannerConfig.detectIntervalMs) return;
+  lastDetectAt = ts || 0;
+  isDetecting = true;
+  detectFromRoi()
+    .then((results) => {
+      if (results.length > 0) handleScan(results[0].rawValue);
+    })
+    .catch(() => {})
+    .finally(() => {
+      isDetecting = false;
+    });
+}
+
+async function startNativeScanner() {
+  const scannerContainer = document.getElementById("scannerContainer");
+  scannerContainer.innerHTML = "";
+  const videoEl = document.createElement("video");
+  videoEl.setAttribute("playsinline", "");
+  videoEl.setAttribute("autoplay", "");
+  videoEl.setAttribute("muted", "");
+  scannerContainer.appendChild(videoEl);
+  nativeVideoEl = videoEl;
+
+  const box = getScannerBox();
+  const overlay = document.createElement("div");
+  overlay.className = "scan-overlay";
+  const frame = document.createElement("div");
+  frame.className = "scan-frame";
+  frame.style.width = box.width + "px";
+  frame.style.height = box.height + "px";
+  overlay.appendChild(frame);
+  scannerContainer.appendChild(overlay);
+
+  nativeStream = await getRearCameraStream();
+  videoEl.srcObject = nativeStream;
+  await videoEl.play();
+
+  const track = nativeStream.getVideoTracks()[0];
+  const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+  setTorchButtonState(!!capabilities.torch, false);
+
+  scannerHint.textContent = "將 CODE 128 條碼放入框內";
+  isDetecting = false;
+  nativeScanLoop();
+}
+
+async function openScannerFallback() {
+  try {
+    await loadHtml5Qrcode();
+  } catch (err) {
+    scannerHint.textContent = "無法載入掃描元件：" + err;
+    showToast("無法載入掃描元件", "error");
+    return;
+  }
+  html5QrCode = new Html5Qrcode("scannerContainer");
+  chooseCamera()
+    .then((cameraId) =>
+      html5QrCode.start(
+        cameraId,
+        {
+          fps: 12,
+          qrbox: getScannerBox(),
+          aspectRatio: 1.777778,
+          formatsToSupport: getBarcodeFormats(),
+        },
+        handleScan,
+        () => {}
+      )
+    )
+    .then(() => {
+      scannerHint.textContent = "請把 CODE 128 條碼放進框內，盡量靠近鏡頭";
+      setTorchButtonState(true, false);
+    })
+    .catch((err) => {
+      scannerHint.textContent = "無法啟動相機：" + err;
+      showToast("無法啟動相機：" + err, "error");
+    });
+}
+
+async function openScanner() {
+  if (scannerActive) return;
+  scannerOpener = document.activeElement;
+  scannerActive = true;
+  scanStartedAt = typeof performance !== "undefined" ? performance.now() : 0;
+  scannerModal.classList.add("active");
+  scannerModal.setAttribute("aria-hidden", "false");
+  scannerHint.textContent = "啟動相機中...";
+  setTorchButtonState(false);
+  closeScannerBtn && closeScannerBtn.focus();
+  useBarcodeDetector = await detectBarcodeDetectorSupport();
+  if (useBarcodeDetector) {
+    barcodeDetector = new BarcodeDetector({ formats: ["code_128"] });
+    startNativeScanner().catch((err) => {
+      scannerHint.textContent = "無法啟動相機：" + err;
+      showToast("無法啟動相機：" + err, "error");
+    });
+  } else {
+    openScannerFallback();
+  }
+}
+
+function closeScanner() {
+  scannerActive = false;
+  torchEnabled = false;
+  setTorchButtonState(false);
+  if (nativeRafId) {
+    cancelAnimationFrame(nativeRafId);
+    nativeRafId = null;
+  }
+  if (nativeStream) {
+    nativeStream.getTracks().forEach((t) => t.stop());
+    nativeStream = null;
+  }
+  const scannerContainer = document.getElementById("scannerContainer");
+  if (scannerContainer) scannerContainer.innerHTML = "";
+  nativeVideoEl = null;
+  if (html5QrCode) {
+    html5QrCode
+      .stop()
+      .then(() => {
+        html5QrCode.clear();
+        html5QrCode = null;
+      })
+      .catch(() => {
+        html5QrCode = null;
+      });
+  }
+  scannerModal.classList.remove("active");
+  scannerModal.setAttribute("aria-hidden", "true");
+  if (scannerOpener && typeof scannerOpener.focus === "function") {
+    scannerOpener.focus();
+  }
+  scannerOpener = null;
+}
+
+async function toggleTorch() {
+  if (toggleTorchBtn.disabled) return;
+  try {
+    torchEnabled = !torchEnabled;
+    if (useBarcodeDetector && nativeStream) {
+      const track = nativeStream.getVideoTracks()[0];
+      await track.applyConstraints({ advanced: [{ torch: torchEnabled }] });
+    } else if (html5QrCode) {
+      await html5QrCode.applyVideoConstraints({
+        advanced: [{ torch: torchEnabled }],
+      });
+    }
+    setTorchButtonState(true, torchEnabled);
+  } catch {
+    torchEnabled = false;
+    setTorchButtonState(false, false);
+    scannerHint.textContent = "此裝置不支援手電筒控制";
+  }
+}
+
+if (scanBarcodeBtn) {
+  scanBarcodeBtn.addEventListener("click", openScanner);
+  closeScannerBtn.addEventListener("click", closeScanner);
+  toggleTorchBtn.addEventListener("click", toggleTorch);
+  scannerModal.addEventListener("click", (e) => {
+    if (e.target === scannerModal) closeScanner();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (scannerModal.classList.contains("active")) closeScanner();
+  });
 }
 
 if ("serviceWorker" in navigator) {
