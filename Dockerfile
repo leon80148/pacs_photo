@@ -22,11 +22,11 @@ COPY .env.example /app/.env.example
 
 RUN pip install --no-cache-dir ".[ocr]"
 
-# 預下載 PP-OCRv6（主）與 v5（fallback）ONNX 模型到 image，
-# 避免生產端首次呼叫才連外網下載。若 v6 尚不可用，改成只預載 PPOCRV5。
-RUN python -c "from rapidocr import RapidOCR, OCRVersion; \
-    RapidOCR(params={'Det.ocr_version': OCRVersion.PPOCRV6, 'Rec.ocr_version': OCRVersion.PPOCRV6}); \
-    RapidOCR(params={'Det.ocr_version': OCRVersion.PPOCRV5, 'Rec.ocr_version': OCRVersion.PPOCRV5})"
+# 預下載 PP-OCRv6 medium（預設）與 v5 mobile（退回）ONNX 模型到 image，
+# 避免生產端首次呼叫才連外網下載。rapidocr 3.9+ 每階段須同時指定 ocr_version 與 model_type。
+RUN python -c "from rapidocr import RapidOCR, OCRVersion, ModelType; \
+    RapidOCR(params={'Det.ocr_version': OCRVersion.PPOCRV6, 'Det.model_type': ModelType.MEDIUM, 'Rec.ocr_version': OCRVersion.PPOCRV6, 'Rec.model_type': ModelType.MEDIUM}); \
+    RapidOCR(params={'Det.ocr_version': OCRVersion.PPOCRV5, 'Det.model_type': ModelType.MOBILE, 'Rec.ocr_version': OCRVersion.PPOCRV5, 'Rec.model_type': ModelType.MOBILE})"
 
 EXPOSE 9470
 

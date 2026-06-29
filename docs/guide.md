@@ -198,7 +198,7 @@ FastAPI Gateway（port 9470）
 
 | 變數 | 說明 | 預設 |
 |------|------|------|
-| `OCR_VERSION` | PP-OCR 模型版本（`PPOCRV6` / `PPOCRV5` / `PPOCRV4`） | `PPOCRV6` |
+| `OCR_VERSION` | PP-OCR 模型版本（`PPOCRV6` medium 最準 / `PPOCRV5` mobile 一鍵退回） | `PPOCRV6` |
 | `OCR_DET_SIDE_LEN` | 偵測解析度（320–1536，越大越準越慢，改值需重啟） | `960` |
 
 ### 條碼掃描器（前端即時生效，此為預設值）

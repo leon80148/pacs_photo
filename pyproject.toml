@@ -20,9 +20,10 @@ photo-pacs = "photo_pacs.cli:main"
 
 [project.optional-dependencies]
 ocr = [
-  # 健保卡 OCR：RapidOCR(ONNX)。PP-OCRv6 需 rapidocr 2026/06 後版本，
-  # pip 會裝符合下限的最新版；免裝 paddlepaddle（Docker/Linux 較穩）。
-  "rapidocr>=2.0.0",
+  # 健保卡 OCR：統一 rapidocr 套件（ONNX Runtime 後端），免裝 paddlepaddle（Docker/Linux 較穩）。
+  # 需 3.9+ 以支援 PP-OCRv6 medium（3.9.0 起每階段須同時指定 ocr_version 與 model_type）；
+  # 鎖 <4 防下一個 major 版本破壞性變更。
+  "rapidocr>=3.9,<4",
   "onnxruntime>=1.17.0",
 ]
 dev = [
