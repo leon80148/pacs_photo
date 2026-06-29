@@ -15,6 +15,11 @@ build/
 release/
 *.spec
 
+# OCR 回歸樣本（可能含 PHI，勿入公開 repo；保留 README 與測試）
+tests/fixtures/id_cards/*.jpg
+tests/fixtures/id_cards/*.jpeg
+tests/fixtures/id_cards/*.png
+
 # 內部開發文件
 photo_pacs_PRD.md
 UI_text.md

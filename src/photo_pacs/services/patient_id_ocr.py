@@ -126,26 +126,31 @@ DEFAULT_OCR_VERSION = "PPOCRV6"
 
 @lru_cache
 def _get_rapid_ocr(ocr_version: str, det_side_len: int):
-    # 統一 rapidocr 套件（ONNX）：以 OCRVersion 選 PP-OCRv4/v5/v6，免裝 paddlepaddle。
+    # 統一 rapidocr 套件（ONNX）：以 OCRVersion 選 PP-OCRv5 / v6，免裝 paddlepaddle。
+    # rapidocr 3.9+ 每階段須同時指定 ocr_version 與 model_type：
+    # v6 用 medium（最準）、v5 用 mobile（一鍵退回）；
+    # cls 階段沿用內建 mobile 模型、不需指定。
     try:
-        from rapidocr import OCRVersion, RapidOCR
+        from rapidocr import ModelType, OCRVersion, RapidOCR
     except ImportError as exc:  # pragma: no cover - depends on environment
         raise OcrBackendUnavailableError("rapidocr not installed") from exc
 
     version_map = {
-        "PPOCRV4": OCRVersion.PPOCRV4,
-        "PPOCRV5": OCRVersion.PPOCRV5,
-        # PP-OCRv6 需較新的 rapidocr；舊版缺此 enum 時自動退回 v5，避免 AttributeError。
-        "PPOCRV6": getattr(OCRVersion, "PPOCRV6", OCRVersion.PPOCRV5),
+        "PPOCRV5": (OCRVersion.PPOCRV5, ModelType.MOBILE),
+        "PPOCRV6": (OCRVersion.PPOCRV6, ModelType.MEDIUM),
     }
-    version = version_map.get(ocr_version.upper(), version_map["PPOCRV6"])
+    version, model_type = version_map.get(
+        ocr_version.upper(), (OCRVersion.PPOCRV6, ModelType.MEDIUM)
+    )
     try:
         # limit_side_len 越大越準、越慢；由部署端用環境變數調整。
         # 不同（版本, 解析度）各自快取一個引擎實例。
         return RapidOCR(
             params={
                 "Det.ocr_version": version,
+                "Det.model_type": model_type,
                 "Rec.ocr_version": version,
+                "Rec.model_type": model_type,
                 "Det.limit_side_len": det_side_len,
             }
         )

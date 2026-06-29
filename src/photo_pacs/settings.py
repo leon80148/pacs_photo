@@ -155,9 +155,9 @@ class Settings(BaseSettings):
     # 改值需重啟（部署時調），因此只走環境變數、不放 UI 即時調整。
     ocr_det_side_len: int = Field(default=960, ge=320, le=1536)
 
-    # OCR 模型版本：PPOCRV6（預設、2026/06 最準）、PPOCRV5、PPOCRV4 可退回。
+    # OCR 模型版本：PPOCRV6（預設，medium 最準）或 PPOCRV5（mobile，可一鍵退回）。
     # 同為 lru_cache 單例，改值需重啟。
-    ocr_version: Literal["PPOCRV4", "PPOCRV5", "PPOCRV6"] = "PPOCRV6"
+    ocr_version: Literal["PPOCRV5", "PPOCRV6"] = "PPOCRV6"
 
     @classmethod
     def settings_customise_sources(
